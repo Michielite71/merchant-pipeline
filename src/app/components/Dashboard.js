@@ -48,7 +48,6 @@ const FUNNEL_COLORS = {
   done: "#00c875",
   "in-progress": "#fdab3d",
   stuck: "#df2f4a",
-  none: "#e6e9ef",
 };
 
 const GROUP_ORDER = [
@@ -89,6 +88,13 @@ function getProgressColor(percent) {
   if (percent >= 50) return "#fdab3d";
   if (percent > 0) return "#579bfc";
   return "#c4c4c4";
+}
+
+function getProgressClass(percent) {
+  if (percent >= 80) return "high";
+  if (percent >= 50) return "medium";
+  if (percent > 0) return "low";
+  return "zero";
 }
 
 async function queryMonday(query) {
@@ -275,43 +281,47 @@ export default function Dashboard() {
     return GROUP_ORDER.map((id) => groups[id]).filter(Boolean);
   }, [filteredItems, sortedItems]);
 
+  const totalItems = items.length;
+
   if (loading && items.length === 0) {
     return (
       <div className="loading">
         <div className="loading-spinner" />
-        Loading merchants...
+        <p>Loading merchants...</p>
       </div>
     );
   }
 
   return (
     <div className="dashboard">
+      {/* Header */}
       <div className="dashboard-header">
         <div className="header-top">
           <div>
-            <h1>Merchant Pipeline Dashboard</h1>
-            <p>
-              {filteredItems.length} merchants
+            <h1>Merchant Pipeline</h1>
+            <div className="header-meta">
+              <span className="count-badge">{filteredItems.length}</span>
+              <span>merchants{activeFilter !== "all" ? ` in ${activeFilter}` : ""}</span>
               {lastUpdated && (
                 <span className="last-updated">
-                  {" "}· Updated {lastUpdated.toLocaleTimeString()}
+                  · {lastUpdated.toLocaleTimeString()}
                 </span>
               )}
-              {loading && <span className="refreshing"> · Refreshing...</span>}
-            </p>
+              {loading && <span className="refreshing">Refreshing...</span>}
+            </div>
           </div>
           <div className="header-actions">
             <button className="action-btn" onClick={fetchAllItems} disabled={loading}>
               Refresh
             </button>
-            <button className="action-btn" onClick={() => exportToCSV(filteredItems)}>
+            <button className="action-btn primary" onClick={() => exportToCSV(filteredItems)}>
               Export CSV
             </button>
           </div>
         </div>
       </div>
 
-      {/* Search + Filters + Sort */}
+      {/* Search + Sort */}
       <div className="controls">
         <input
           type="text"
@@ -331,43 +341,71 @@ export default function Dashboard() {
         </select>
       </div>
 
+      {/* Vertical Filters */}
       <div className="filters">
         <button
           className={`filter-btn ${activeFilter === "all" ? "active" : ""}`}
           onClick={() => setActiveFilter("all")}
         >
-          All
+          All ({totalItems})
         </button>
-        {verticals.map((v) => (
-          <button
-            key={v}
-            className={`filter-btn ${activeFilter === v ? "active" : ""}`}
-            onClick={() => setActiveFilter(v)}
-          >
-            {v}
-          </button>
-        ))}
+        {verticals.map((v) => {
+          const count = items.filter((item) => {
+            const vert = item.column_values.find((c) => c.id === "color_mksax617");
+            return vert?.text === v;
+          }).length;
+          return (
+            <button
+              key={v}
+              className={`filter-btn ${activeFilter === v ? "active" : ""}`}
+              onClick={() => setActiveFilter(v)}
+            >
+              {v} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {/* Summary Cards */}
       <div className="summary-cards">
         {groupData.map((g) => (
-          <div key={g.id} className="summary-card">
+          <div
+            key={g.id}
+            className="summary-card"
+            style={{ borderLeftColor: g.color }}
+          >
             <div className="count" style={{ color: g.color }}>
               {g.items.length}
             </div>
             <div className="label">{g.title}</div>
+            <div
+              className="card-bar"
+              style={{
+                width: `${totalItems > 0 ? (g.items.length / totalItems) * 100 : 0}%`,
+                background: g.color,
+                opacity: 0.3,
+              }}
+            />
           </div>
         ))}
       </div>
 
-      {/* Funnel with stacked bars */}
+      {/* Funnel */}
       <div className="funnel-section">
         <h2>Pipeline Funnel</h2>
+        <p className="funnel-subtitle">
+          Stage completion across {filteredItems.length} merchants
+        </p>
         <div className="funnel-legend">
-          <span className="legend-item"><span className="legend-dot" style={{ background: "#00c875" }} /> Done</span>
-          <span className="legend-item"><span className="legend-dot" style={{ background: "#fdab3d" }} /> In Progress</span>
-          <span className="legend-item"><span className="legend-dot" style={{ background: "#df2f4a" }} /> Stuck</span>
+          <span className="legend-item">
+            <span className="legend-dot" style={{ background: "#00c875" }} /> Done
+          </span>
+          <span className="legend-item">
+            <span className="legend-dot" style={{ background: "#fdab3d" }} /> In Progress
+          </span>
+          <span className="legend-item">
+            <span className="legend-dot" style={{ background: "#df2f4a" }} /> Stuck
+          </span>
         </div>
         <div className="funnel">
           {funnelData.map((stage) => {
@@ -421,107 +459,114 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Pipeline Columns */}
-      <div className="pipeline-section">
-        <h2>Merchants by Group</h2>
-        <div className="pipeline-columns">
-          {groupData.map((group) => (
-            <div key={group.id} className="pipeline-column">
-              <div
-                className="pipeline-column-header"
-                style={{ background: group.color }}
-              >
-                {group.title}
-                <span className="col-count">{group.items.length}</span>
-              </div>
-              <div className="pipeline-column-items">
-                {group.items.map((item) => {
-                  const vertical = item.column_values.find(
-                    (c) => c.id === "color_mksax617"
-                  );
-                  const progress = getProgressPercent(item);
-                  const isExpanded = expandedItem === item.id;
+      {/* Empty State */}
+      {filteredItems.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-icon">O</div>
+          <h3>No merchants found</h3>
+          <p>Try adjusting your search or filters</p>
+        </div>
+      )}
 
-                  return (
-                    <div
-                      key={item.id}
-                      className={`merchant-card ${isExpanded ? "expanded" : ""}`}
-                      onClick={() => setExpandedItem(isExpanded ? null : item.id)}
-                    >
-                      <div className="merchant-card-top">
-                        <div>
-                          <div className="merchant-name">{item.name}</div>
-                          <div className="merchant-vertical">
-                            {vertical?.text || "N/A"}
+      {/* Pipeline Columns */}
+      {filteredItems.length > 0 && (
+        <div className="pipeline-section">
+          <div className="pipeline-section-header">
+            <h2>Merchants by Group</h2>
+          </div>
+          <div className="pipeline-columns">
+            {groupData.map((group) => (
+              <div key={group.id} className="pipeline-column">
+                <div
+                  className="pipeline-column-header"
+                  style={{ background: group.color }}
+                >
+                  {group.title}
+                  <span className="col-count">{group.items.length}</span>
+                </div>
+                <div className="pipeline-column-items">
+                  {group.items.map((item) => {
+                    const vertical = item.column_values.find(
+                      (c) => c.id === "color_mksax617"
+                    );
+                    const progress = getProgressPercent(item);
+                    const isExpanded = expandedItem === item.id;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`merchant-card ${isExpanded ? "expanded" : ""}`}
+                        onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                      >
+                        <div className="merchant-card-top">
+                          <div>
+                            <div className="merchant-name">{item.name}</div>
+                            <div className="merchant-vertical">
+                              {vertical?.text || "N/A"}
+                            </div>
+                          </div>
+                          <div className={`merchant-progress-badge ${getProgressClass(progress)}`}>
+                            {progress}%
                           </div>
                         </div>
-                        <div className="merchant-progress-badge" style={{ color: getProgressColor(progress) }}>
-                          {progress}%
+
+                        <div className="progress-bar-container">
+                          <div
+                            className="progress-bar-fill"
+                            style={{
+                              width: `${progress}%`,
+                              background: getProgressColor(progress),
+                            }}
+                          />
                         </div>
-                      </div>
 
-                      {/* Progress bar */}
-                      <div className="progress-bar-container">
-                        <div
-                          className="progress-bar-fill"
-                          style={{
-                            width: `${progress}%`,
-                            background: getProgressColor(progress),
-                          }}
-                        />
-                      </div>
-
-                      {/* Stage dots */}
-                      <div className="merchant-stages">
-                        {PIPELINE_STAGES.map((stage) => {
-                          const col = item.column_values.find(
-                            (c) => c.id === stage.id
-                          );
-                          const status = getStageStatus(col?.text);
-                          return (
-                            <div
-                              key={stage.id}
-                              className="stage-dot-wrapper"
-                            >
-                              <div className={`stage-dot ${status}`} />
-                              <div className="stage-tooltip">
-                                <strong>{stage.label}</strong>
-                                <br />
-                                {col?.text || "Empty"}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Expanded detail */}
-                      {isExpanded && (
-                        <div className="merchant-detail">
+                        <div className="merchant-stages">
                           {PIPELINE_STAGES.map((stage) => {
                             const col = item.column_values.find(
                               (c) => c.id === stage.id
                             );
                             const status = getStageStatus(col?.text);
                             return (
-                              <div key={stage.id} className="detail-row">
-                                <span className={`detail-indicator ${status}`} />
-                                <span className="detail-label">{stage.label}</span>
-                                <span className={`detail-value ${status}`}>
-                                  {col?.text || "—"}
-                                </span>
+                              <div key={stage.id} className="stage-dot-wrapper">
+                                <div className={`stage-dot ${status}`} />
+                                <div className="stage-tooltip">
+                                  <strong>{stage.label}</strong>
+                                  <br />
+                                  {col?.text || "Empty"}
+                                </div>
                               </div>
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {isExpanded && (
+                          <div className="merchant-detail">
+                            {PIPELINE_STAGES.map((stage) => {
+                              const col = item.column_values.find(
+                                (c) => c.id === stage.id
+                              );
+                              const status = getStageStatus(col?.text);
+                              return (
+                                <div key={stage.id} className="detail-row">
+                                  <span className={`detail-indicator ${status}`} />
+                                  <span className="detail-label">{stage.label}</span>
+                                  <span className={`detail-value ${status}`}>
+                                    {col?.text || "\u2014"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
