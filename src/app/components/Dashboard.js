@@ -292,9 +292,15 @@ export default function Dashboard() {
                           return (
                             <div
                               key={stage.id}
-                              className={`stage-dot ${status}`}
-                              title={`${stage.label}: ${col?.text || "Empty"}`}
-                            />
+                              className="stage-dot-wrapper"
+                            >
+                              <div className={`stage-dot ${status}`} />
+                              <div className="stage-tooltip">
+                                <strong>{stage.label}</strong>
+                                <br />
+                                {col?.text || "Empty"}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
