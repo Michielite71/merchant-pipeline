@@ -135,7 +135,7 @@ body {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pipeline-column-header {
@@ -146,6 +146,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-radius: 8px 8px 0 0;
 }
 
 .pipeline-column-header .col-count {
@@ -159,6 +160,7 @@ body {
   padding: 8px;
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: visible;
 }
 
 .merchant-card {
@@ -168,6 +170,7 @@ body {
   margin-bottom: 6px;
   cursor: pointer;
   transition: background 0.15s;
+  overflow: visible;
 }
 
 .merchant-card:hover {
@@ -189,6 +192,7 @@ body {
   display: flex;
   gap: 3px;
   margin-top: 6px;
+  padding: 2px;
 }
 
 .stage-dot-wrapper {
@@ -227,7 +231,7 @@ body {
   padding: 6px 10px;
   border-radius: 6px;
   white-space: nowrap;
-  z-index: 100;
+  z-index: 1000;
   pointer-events: none;
   line-height: 1.4;
 }
